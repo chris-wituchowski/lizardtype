@@ -217,6 +217,7 @@ class LizardTypeGame:
         self.target_name = ""
         self.show_fun_fact = False
         self.image_loading = False
+        self.image_load_failed = False
 
         # Shuffled reptile order
         self.reptile_order: list[int] = []
@@ -285,12 +286,16 @@ class LizardTypeGame:
         # Load image in background thread to avoid freezing
         self.current_image = None
         self.image_loading = True
+        self.image_load_failed = False
         reptile = self.current_reptile
 
         def _load():
             img = load_pygame_image(reptile["image_file"], IMAGE_SIZE)
             if img is None:
-                img = create_placeholder_surface(reptile["common_name"], IMAGE_SIZE)
+                # Signal the main loop to skip this round
+                self.image_load_failed = True
+                self.image_loading = False
+                return
             self.current_image = img
             self.image_loading = False
 
@@ -733,6 +738,12 @@ class LizardTypeGame:
                     self._handle_result_events(event)
                 elif self.state == STATE_GAME_OVER:
                     self._handle_gameover_events(event)
+
+            # If the background image load failed, skip this round (no penalty)
+            if self.image_load_failed and self.state == STATE_PLAYING:
+                self.image_load_failed = False
+                self.round_num += 1
+                self._next_round()
 
             # Draw
             if self.state == STATE_MENU:

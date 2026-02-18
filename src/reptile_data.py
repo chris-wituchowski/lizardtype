@@ -55,7 +55,7 @@ REPTILES = [
         "common_name": 'Blue-Tongued Skink',
         "scientific_name": 'Tiliqua scincoides',
         "fun_fact": 'Blue-tongued skinks stick out their bright blue tongue to scare away predators!',
-        "image_file": 'Tiliqua scincoides (White, 1790).jpg',
+        "image_file": 'Eastern blue tongued lizard.jpg',
         "image_credit": 'Wikimedia Commons, CC BY-SA 3.0',
     },
     {
@@ -636,8 +636,8 @@ REPTILES = [
         "common_name": 'Glass Lizard',
         "scientific_name": 'Ophisaurus ventralis',
         "fun_fact": 'Glass lizards can break off their tails, which shatter like glass!',
-        "image_file": 'Eastern Glass Lizard.jpg',
-        "image_credit": 'Wikimedia Commons',
+        "image_file": 'Ophisaurus ventralis 272210506.jpg',
+        "image_credit": 'Wikimedia Commons, CC BY 4.0',
     },
     {
         "common_name": 'Horned Lizard',
