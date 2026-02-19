@@ -1,20 +1,23 @@
-# 🦎 LizardType — Reptile Typing Trainer
+# 🦎 LizardType — Typing Trainer
 
-A fun typing game for kids who love reptiles!
+A fun typing game for kids who love reptiles and sea creatures!
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-green)
 
 ## Features
 
-- **Easy Mode** — Type the common name of the reptile (e.g. "Green Iguana")
-- **Hard Mode** — Type the scientific name (e.g. "Iguana iguana")
-- 🖼️ Real reptile photos from Wikimedia Commons (all freely licensed)
+- **Two Modes** — Choose between 🦎 Reptiles or 🐠 Sea Creatures
+- **Easy Mode** — Type the common name (e.g. "Green Iguana" or "Clownfish")
+- **Hard Mode** — Type the scientific name (e.g. "Iguana iguana" or "Amphiprion ocellaris")
+- 🖼️ Real animal photos from Wikimedia Commons (all freely licensed)
+- 🎨 Theme-specific visuals — jungle leaves for reptiles, rising bubbles for ocean
 - 🔤 Underline-style typing prompt that fills in as you type
 - 💡 Hint button reveals one letter at a time
 - 🎉 Confetti celebration on correct answers
 - 📊 Score tracking with streak counter
-- 🦎 15 different reptiles including geckos, turtles, snakes, and crocodiles
+- 🦎 90+ reptiles including geckos, turtles, snakes, and crocodiles
+- 🐠 80+ sea creatures including sharks, whales, octopuses, and jellyfish
 - 👶 All images are child-appropriate (no feeding/predation scenes)
 
 ## Requirements
@@ -56,12 +59,13 @@ python src/game.py
 
 ## How to Play
 
-1. Choose **Easy Mode** or **Hard Mode** from the main menu
-2. A reptile photo appears — type the name in the underline prompt
-3. Click **Hint** (or keep clicking) to reveal letters one at a time
-4. Press **Enter** or click **Submit** to check your answer
-5. Click **Skip** if you're stuck
-6. Try to get the highest score and longest streak!
+1. Choose **Reptiles** 🦎 or **Sea Creatures** 🐠 from the main menu
+2. Select **Easy Mode** or **Hard Mode**
+3. An animal photo appears — type the name in the underline prompt
+4. Click **Hint** (or keep clicking) to reveal letters one at a time
+5. Press **Enter** or click **Submit** to check your answer
+6. Click **Skip** if you're stuck
+7. Try to get the highest score and longest streak!
 
 ### Scoring
 - **10 points** for a correct answer with no hints
@@ -72,16 +76,16 @@ python src/game.py
 
 | Key / Button | Action |
 |---|---|
-| Type letters | Fill in the reptile name |
+| Type letters | Fill in the animal name |
 | Backspace | Delete last character |
 | Enter | Submit answer |
 | Escape | Return to menu |
 | Hint button | Reveal next letter |
-| Skip button | Skip to next reptile |
+| Skip button | Skip to next animal |
 
 ## Image Credits
 
-All reptile images are sourced from **Wikimedia Commons** under free licenses
+All images are sourced from **Wikimedia Commons** under free licenses
 (CC-BY, CC-BY-SA, or Public Domain). Individual credits are shown beneath each
 image during gameplay. This application is for personal/educational use only.
 
@@ -94,7 +98,8 @@ LizardType/
 ├── README.md
 ├── src/
 │   ├── game.py             # Main game (Pygame)
-│   ├── reptile_data.py     # Reptile database (names, facts, image URLs)
+│   ├── reptile_data.py     # Reptile database (names, facts, image filenames)
+│   ├── sea_creature_data.py # Sea creature database (names, facts, image filenames)
 │   └── image_manager.py    # Image downloader & cache manager
 └── image_cache/            # Auto-created; cached downloaded images
 ```

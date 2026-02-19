@@ -35,6 +35,7 @@ if _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)
 
 from reptile_data import REPTILES
+from sea_creature_data import SEA_CREATURES
 from image_manager import load_pygame_image, create_placeholder_surface
 
 # ── Colour palette ─────────────────────────────────────────────────────────
@@ -54,17 +55,32 @@ GRAY        = (160, 160, 160)
 SHADOW      = (0, 0, 0, 80)
 TRANSPARENT_BG = (0, 0, 0, 140)
 
+# ── Ocean colour palette ──────────────────────────────────────────────────
+BG_OCEAN      = (12, 50, 95)
+DARK_OCEAN    = (8, 35, 70)
+OCEAN_BLUE    = (30, 110, 180)
+LIGHT_OCEAN   = (80, 180, 240)
+SANDY         = (230, 210, 160)
+CORAL_PINK    = (240, 128, 128)
+SEAFOAM       = (120, 220, 200)
+DEEP_TEAL     = (0, 128, 128)
+
+# ── Theme modes ────────────────────────────────────────────────────────────
+THEME_REPTILES     = "reptiles"
+THEME_SEA_CREATURES = "sea_creatures"
+
 # ── Layout constants ───────────────────────────────────────────────────────
 SCREEN_W, SCREEN_H = 900, 700
 IMAGE_SIZE = (420, 320)
 FPS = 60
 
 # ── Game states ────────────────────────────────────────────────────────────
-STATE_MENU      = "menu"
-STATE_PLAYING   = "playing"
-STATE_CORRECT   = "correct"
-STATE_WRONG     = "wrong"
-STATE_GAME_OVER = "game_over"
+STATE_MENU        = "menu"
+STATE_THEME_SELECT = "theme_select"
+STATE_PLAYING     = "playing"
+STATE_CORRECT     = "correct"
+STATE_WRONG       = "wrong"
+STATE_GAME_OVER   = "game_over"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -101,7 +117,7 @@ class ConfettiParticle:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Floating leaf background particle
+#  Floating leaf background particle (reptile theme)
 # ═══════════════════════════════════════════════════════════════════════════
 class LeafParticle:
     def __init__(self):
@@ -134,6 +150,41 @@ class LeafParticle:
         pygame.draw.ellipse(s, (*self.colour, 120), (0, 0, self.size, self.size * 2))
         rotated = pygame.transform.rotate(s, self.angle)
         surface.blit(rotated, (int(self.x), int(self.y)))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Rising bubble background particle (ocean theme)
+# ═══════════════════════════════════════════════════════════════════════════
+class BubbleParticle:
+    def __init__(self):
+        self.reset()
+        self.y = random.uniform(0, SCREEN_H)
+
+    def reset(self):
+        self.x = random.uniform(20, SCREEN_W - 20)
+        self.y = random.uniform(SCREEN_H + 10, SCREEN_H + 60)
+        self.vy = random.uniform(-0.5, -1.5)
+        self.size = random.randint(3, 10)
+        self.alpha = random.randint(40, 120)
+        self.sway_offset = random.uniform(0, math.pi * 2)
+        self.sway_speed = random.uniform(0.01, 0.03)
+        self.tick = 0
+
+    def update(self):
+        self.tick += 1
+        self.y += self.vy
+        self.x += math.sin(self.tick * self.sway_speed + self.sway_offset) * 0.5
+        if self.y < -20:
+            self.reset()
+
+    def draw(self, surface):
+        s = pygame.Surface((self.size * 2, self.size * 2), pygame.SRCALPHA)
+        pygame.draw.circle(s, (180, 220, 255, self.alpha), (self.size, self.size), self.size)
+        # highlight
+        hl_size = max(1, self.size // 3)
+        pygame.draw.circle(s, (220, 240, 255, min(255, self.alpha + 60)),
+                           (self.size - hl_size, self.size - hl_size), hl_size)
+        surface.blit(s, (int(self.x), int(self.y)))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -179,7 +230,7 @@ class LizardTypeGame:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
-        pygame.display.set_caption("LizardType — Reptile Typing Trainer!")
+        pygame.display.set_caption("LizardType — Typing Trainer!")
         self.clock = pygame.time.Clock()
 
         # Fonts
@@ -192,8 +243,12 @@ class LizardTypeGame:
         self.font_big     = pygame.font.SysFont("Arial", 40, bold=True)
         self.font_btn     = pygame.font.SysFont("Arial", 22, bold=True)
 
-        # Background leaves
+        # Theme (reptiles or sea_creatures)
+        self.theme = THEME_REPTILES
+
+        # Background particles — created lazily per theme
         self.leaves = [LeafParticle() for _ in range(30)]
+        self.bubbles = [BubbleParticle() for _ in range(35)]
 
         # Game state
         self.state = STATE_MENU
@@ -212,19 +267,28 @@ class LizardTypeGame:
         self.message = ""
         self.message_timer = 0
         self.message_color = GOLD
-        self.current_reptile = None
+        self.current_creature = None
         self.current_image: pygame.Surface | None = None
         self.target_name = ""
         self.show_fun_fact = False
         self.image_loading = False
         self.image_load_failed = False
 
-        # Shuffled reptile order
-        self.reptile_order: list[int] = []
+        # Animal data list (set when theme is chosen)
+        self.creature_list: list[dict] = REPTILES
+        self.creature_order: list[int] = []
 
-        # Menu buttons
+        # Main menu buttons — theme selection
         btn_w, btn_h = 220, 55
         cx = SCREEN_W // 2
+        self.btn_reptiles = Button(
+            (cx - btn_w - 15, 400, btn_w, btn_h), "Reptiles", LEAF_GREEN
+        )
+        self.btn_sea = Button(
+            (cx + 15, 400, btn_w, btn_h), "Sea Creatures", OCEAN_BLUE
+        )
+
+        # Difficulty buttons (shown on theme-select / difficulty screen)
         self.btn_easy = Button(
             (cx - btn_w - 15, 400, btn_w, btn_h), "Easy Mode", LEAF_GREEN
         )
@@ -238,10 +302,34 @@ class LizardTypeGame:
         self.btn_skip = Button((0, 0, 120, 44), "Skip", GRAY)
 
         # Post-round / game-over buttons
-        self.btn_next = Button((0, 0, 160, 50), "Next Reptile", LEAF_GREEN, font_size=24)
+        self.btn_next = Button((0, 0, 160, 50), "Next!", LEAF_GREEN, font_size=24)
         self.btn_menu = Button((0, 0, 160, 50), "Main Menu", ORANGE, font_size=24)
         self.btn_play_again = Button((0, 0, 200, 55), "Play Again!", LEAF_GREEN, font_size=26)
         self.btn_menu2 = Button((0, 0, 200, 55), "Main Menu", ORANGE, font_size=26)
+
+    # ── theme helpers ──────────────────────────────────────────────────────
+    def _is_ocean(self):
+        return self.theme == THEME_SEA_CREATURES
+
+    @property
+    def _bg_color(self):
+        return BG_OCEAN if self._is_ocean() else BG_GREEN
+
+    @property
+    def _dark_color(self):
+        return DARK_OCEAN if self._is_ocean() else DARK_GREEN
+
+    @property
+    def _accent_color(self):
+        return OCEAN_BLUE if self._is_ocean() else LEAF_GREEN
+
+    @property
+    def _light_accent(self):
+        return LIGHT_OCEAN if self._is_ocean() else LIGHT_GREEN
+
+    @property
+    def _creature_label(self):
+        return "Sea Creature" if self._is_ocean() else "Reptile"
 
     # ── helpers ────────────────────────────────────────────────────────────
     @staticmethod
@@ -250,10 +338,10 @@ class LizardTypeGame:
         nfkd = unicodedata.normalize("NFKD", name)
         return "".join(c for c in nfkd if not unicodedata.combining(c))
 
-    def _target(self, reptile: dict) -> str:
+    def _target(self, creature: dict) -> str:
         if self.difficulty == "hard":
-            return self._ascii_name(reptile["scientific_name"])
-        return self._ascii_name(reptile["common_name"])
+            return self._ascii_name(creature["scientific_name"])
+        return self._ascii_name(creature["common_name"])
 
     def _start_game(self, difficulty: str):
         self.difficulty = difficulty
@@ -262,17 +350,17 @@ class LizardTypeGame:
         self.best_streak = 0
         self.round_num = 0
         self.hints_used_total = 0
-        self.reptile_order = list(range(len(REPTILES)))
-        random.shuffle(self.reptile_order)
+        self.creature_order = list(range(len(self.creature_list)))
+        random.shuffle(self.creature_order)
         self._next_round()
 
     def _next_round(self):
         if self.round_num >= self.total_rounds:
             self.state = STATE_GAME_OVER
             return
-        idx = self.reptile_order[self.round_num % len(self.reptile_order)]
-        self.current_reptile = REPTILES[idx]
-        self.target_name = self._target(self.current_reptile)
+        idx = self.creature_order[self.round_num % len(self.creature_order)]
+        self.current_creature = self.creature_list[idx]
+        self.target_name = self._target(self.current_creature)
         self.typed_text = ""
         self.hint_count = 0
         self.hint_active = False
@@ -287,10 +375,10 @@ class LizardTypeGame:
         self.current_image = None
         self.image_loading = True
         self.image_load_failed = False
-        reptile = self.current_reptile
+        creature = self.current_creature
 
         def _load():
-            img = load_pygame_image(reptile["image_file"], IMAGE_SIZE)
+            img = load_pygame_image(creature["image_file"], IMAGE_SIZE)
             if img is None:
                 # Signal the main loop to skip this round
                 self.image_load_failed = True
@@ -343,10 +431,15 @@ class LizardTypeGame:
 
     # ── drawing helpers ────────────────────────────────────────────────────
     def _draw_bg(self):
-        self.screen.fill(BG_GREEN)
-        for leaf in self.leaves:
-            leaf.update()
-            leaf.draw(self.screen)
+        self.screen.fill(self._bg_color)
+        if self._is_ocean():
+            for bubble in self.bubbles:
+                bubble.update()
+                bubble.draw(self.screen)
+        else:
+            for leaf in self.leaves:
+                leaf.update()
+                leaf.draw(self.screen)
 
     def _draw_top_bar(self):
         bar = pygame.Surface((SCREEN_W, 50), pygame.SRCALPHA)
@@ -354,8 +447,9 @@ class LizardTypeGame:
         self.screen.blit(bar, (0, 0))
 
         diff_label = "Easy" if self.difficulty == "easy" else "Hard"
+        theme_label = "Sea Creatures" if self._is_ocean() else "Reptiles"
         left = self.font_small.render(
-            f"  Mode: {diff_label}   |   Round {self.round_num + 1}/{self.total_rounds}", True, SOFT_WHITE
+            f"  {theme_label} · {diff_label}   |   Round {self.round_num + 1}/{self.total_rounds}", True, SOFT_WHITE
         )
         self.screen.blit(left, (10, 14))
 
@@ -365,7 +459,7 @@ class LizardTypeGame:
         self.screen.blit(right, (SCREEN_W - right.get_width() - 10, 14))
 
     def _draw_image_frame(self, y_offset=65):
-        """Draw the reptile image centered with a rounded frame."""
+        """Draw the creature image centered with a rounded frame."""
         frame_w, frame_h = IMAGE_SIZE[0] + 20, IMAGE_SIZE[1] + 20
         frame_x = (SCREEN_W - frame_w) // 2
         frame_y = y_offset
@@ -374,9 +468,9 @@ class LizardTypeGame:
         pygame.draw.rect(self.screen, (0, 0, 0, 50),
                          (frame_x + 4, frame_y + 4, frame_w, frame_h), border_radius=16)
         # Frame
-        pygame.draw.rect(self.screen, DARK_GREEN,
+        pygame.draw.rect(self.screen, self._dark_color,
                          (frame_x, frame_y, frame_w, frame_h), border_radius=16)
-        pygame.draw.rect(self.screen, LEAF_GREEN,
+        pygame.draw.rect(self.screen, self._accent_color,
                          (frame_x, frame_y, frame_w, frame_h), width=3, border_radius=16)
 
         if self.image_loading:
@@ -389,8 +483,8 @@ class LizardTypeGame:
             self.screen.blit(self.current_image, img_rect)
 
         # Credit — small overlay inside the bottom-right of the frame
-        if self.current_reptile:
-            credit_text = self.current_reptile.get("image_credit", "")
+        if self.current_creature:
+            credit_text = self.current_creature.get("image_credit", "")
             credit = self.font_small.render(credit_text, True, (200, 220, 200))
             # Semi-transparent background behind the credit text
             cw, ch = credit.get_size()
@@ -410,7 +504,7 @@ class LizardTypeGame:
 
         # Prompt label — rendered above the typing box with clear spacing
         mode_label = "Type the common name:" if self.difficulty == "easy" else "Type the scientific name:"
-        lbl = self.font_small.render(mode_label, True, LIGHT_GREEN)
+        lbl = self.font_small.render(mode_label, True, self._light_accent)
         self.screen.blit(lbl, lbl.get_rect(midbottom=(SCREEN_W // 2, y - 6)))
 
         # Semi-transparent backdrop
@@ -421,7 +515,7 @@ class LizardTypeGame:
 
         bg = pygame.Surface((area_w, area_h), pygame.SRCALPHA)
         bg.fill(TRANSPARENT_BG)
-        pygame.draw.rect(bg, LEAF_GREEN, (0, 0, area_w, area_h), width=2, border_radius=10)
+        pygame.draw.rect(bg, self._accent_color, (0, 0, area_w, area_h), width=2, border_radius=10)
         self.screen.blit(bg, (area_x, area_y))
 
         # Character cells
@@ -442,7 +536,7 @@ class LizardTypeGame:
             if i < len(typed):
                 # Show typed character
                 if typed[i].lower() == ch.lower():
-                    colour = LIGHT_GREEN
+                    colour = self._light_accent
                 else:
                     colour = RED
                 letter = self.font_typing.render(typed[i], True, colour)
@@ -508,9 +602,9 @@ class LizardTypeGame:
             cy += 35
 
         # Fun fact
-        if self.show_fun_fact and self.current_reptile:
-            fact = self.current_reptile["fun_fact"]
-            ft = self.font_body.render(fact, True, LIGHT_GREEN)
+        if self.show_fun_fact and self.current_creature:
+            fact = self.current_creature["fun_fact"]
+            ft = self.font_body.render(fact, True, self._light_accent)
             # Wrap if too wide
             if ft.get_width() > SCREEN_W - 80:
                 words = fact.split()
@@ -526,7 +620,7 @@ class LizardTypeGame:
                 if line:
                     lines.append(line)
                 for ln in lines:
-                    ft = self.font_body.render(ln, True, LIGHT_GREEN)
+                    ft = self.font_body.render(ln, True, self._light_accent)
                     self.screen.blit(ft, ft.get_rect(center=(SCREEN_W // 2, cy)))
                     cy += 28
             else:
@@ -562,6 +656,7 @@ class LizardTypeGame:
             f"Best Streak:  {self.best_streak}",
             f"Hints Used:   {self.hints_used_total}",
             f"Difficulty:   {'Easy' if self.difficulty == 'easy' else 'Hard'}",
+            f"Theme:        {'Sea Creatures' if self._is_ocean() else 'Reptiles'}",
         ]
         for ln in lines:
             r = self.font_subtitle.render(ln, True, SOFT_WHITE)
@@ -581,9 +676,14 @@ class LizardTypeGame:
         self.confetti = [p for p in self.confetti if p.life > 0]
 
     def _draw_menu(self):
-        self._draw_bg()
+        """Main menu — choose a theme."""
+        self.screen.fill(BG_GREEN)
+        # Draw both particles lightly for a mixed feel
+        for leaf in self.leaves:
+            leaf.update()
+            leaf.draw(self.screen)
 
-        cy = 140
+        cy = 120
         # Title with shadow
         shadow = self.font_title.render("LizardType", True, (0, 0, 0))
         self.screen.blit(shadow, shadow.get_rect(center=(SCREEN_W // 2 + 3, cy + 3)))
@@ -591,11 +691,15 @@ class LizardTypeGame:
         self.screen.blit(title, title.get_rect(center=(SCREEN_W // 2, cy)))
         cy += 55
 
-        tagline = self.font_subtitle.render("Reptile Typing Trainer!", True, LIGHT_GREEN)
+        tagline = self.font_subtitle.render("Typing Trainer!", True, LIGHT_GREEN)
         self.screen.blit(tagline, tagline.get_rect(center=(SCREEN_W // 2, cy)))
+        cy += 50
+
+        choose = self.font_subtitle.render("Choose a Mode:", True, SOFT_WHITE)
+        self.screen.blit(choose, choose.get_rect(center=(SCREEN_W // 2, cy)))
         cy += 60
 
-        # Decorative lizard ASCII — use monospace font so characters align
+        # Decorative lizard ASCII
         lizard_lines = [
             r"      _  _          ",
             r"     / \/ \    ~~>  ",
@@ -606,21 +710,84 @@ class LizardTypeGame:
             r"'-.          .-'    ",
             r"   `--------`       ",
         ]
-        mono_font = pygame.font.SysFont("Courier New", 18)
-        # Measure the widest line to centre the whole block
+        mono_font = pygame.font.SysFont("Courier New", 16)
         max_w = max(mono_font.size(ln)[0] for ln in lizard_lines)
-        block_x = (SCREEN_W - max_w) // 2
+        block_x = SCREEN_W // 4 - max_w // 2
+        art_y = cy
         for ln in lizard_lines:
             art = mono_font.render(ln, True, LEAF_GREEN)
-            self.screen.blit(art, (block_x, cy))
-            cy += 22
+            self.screen.blit(art, (block_x, art_y))
+            art_y += 20
 
-        cy += 20
+        # Decorative fish ASCII
+        fish_lines = [
+            r"        o  o        ",
+            r"       /    \       ",
+            r" ><((°>  ><((°>    ",
+            r"       \    /       ",
+            r"   ><((°>           ",
+            r"      ~  ~  ~       ",
+            r"   ~ SPLASH! ~      ",
+            r"      ~  ~  ~       ",
+        ]
+        max_w2 = max(mono_font.size(ln)[0] for ln in fish_lines)
+        block_x2 = 3 * SCREEN_W // 4 - max_w2 // 2
+        art_y = cy
+        for ln in fish_lines:
+            art = mono_font.render(ln, True, LIGHT_OCEAN)
+            self.screen.blit(art, (block_x2, art_y))
+            art_y += 20
+
+        cy += 170
+
+        # Theme buttons
+        self.btn_reptiles.rect.centery = cy
+        self.btn_sea.rect.centery = cy
+        self.btn_reptiles.rect.centerx = SCREEN_W // 2 - 120
+        self.btn_sea.rect.centerx = SCREEN_W // 2 + 120
+        self.btn_reptiles.draw(self.screen, self.font_btn)
+        self.btn_sea.draw(self.screen, self.font_btn)
+
+        # Descriptions
+        cy += 45
+        rep_desc = self.font_small.render("Lizards, snakes, turtles & more", True, SOFT_WHITE)
+        sea_desc = self.font_small.render("Fish, whales, sharks & more", True, SOFT_WHITE)
+        self.screen.blit(rep_desc, rep_desc.get_rect(center=(SCREEN_W // 2 - 120, cy)))
+        self.screen.blit(sea_desc, sea_desc.get_rect(center=(SCREEN_W // 2 + 120, cy)))
+
+        footer = self.font_small.render("Images: Wikimedia Commons (CC-BY/CC-BY-SA/Public Domain)", True, (120, 140, 120))
+        self.screen.blit(footer, footer.get_rect(midbottom=(SCREEN_W // 2, SCREEN_H - 15)))
+
+    def _draw_theme_select(self):
+        """Difficulty selection screen — shown after choosing a theme."""
+        self._draw_bg()
+
+        cy = 140
+        # Title
+        theme_title = "Sea Creatures" if self._is_ocean() else "Reptiles"
+        shadow = self.font_title.render(theme_title, True, (0, 0, 0))
+        self.screen.blit(shadow, shadow.get_rect(center=(SCREEN_W // 2 + 3, cy + 3)))
+        title = self.font_title.render(theme_title, True, GOLD)
+        self.screen.blit(title, title.get_rect(center=(SCREEN_W // 2, cy)))
+        cy += 55
+
+        tagline_text = "Ocean Typing Trainer!" if self._is_ocean() else "Reptile Typing Trainer!"
+        tagline = self.font_subtitle.render(tagline_text, True, self._light_accent)
+        self.screen.blit(tagline, tagline.get_rect(center=(SCREEN_W // 2, cy)))
+        cy += 60
+
+        choose = self.font_subtitle.render("Choose Difficulty:", True, SOFT_WHITE)
+        self.screen.blit(choose, choose.get_rect(center=(SCREEN_W // 2, cy)))
+        cy += 60
+
         # Descriptions
         easy_desc = self.font_small.render("Easy: Type the common name", True, SOFT_WHITE)
         hard_desc = self.font_small.render("Hard: Type the scientific name", True, SOFT_WHITE)
         self.screen.blit(easy_desc, easy_desc.get_rect(center=(SCREEN_W // 2 - 120, cy)))
         self.screen.blit(hard_desc, hard_desc.get_rect(center=(SCREEN_W // 2 + 120, cy)))
+
+        # Update easy button color to match theme
+        self.btn_easy.colour = self._accent_color
 
         self.btn_easy.rect.centery = cy + 50
         self.btn_hard.rect.centery = cy + 50
@@ -629,8 +796,9 @@ class LizardTypeGame:
         self.btn_easy.draw(self.screen, self.font_btn)
         self.btn_hard.draw(self.screen, self.font_btn)
 
-        footer = self.font_small.render("Images: Wikimedia Commons (CC-BY/CC-BY-SA/Public Domain)", True, (120, 140, 120))
-        self.screen.blit(footer, footer.get_rect(midbottom=(SCREEN_W // 2, SCREEN_H - 15)))
+        # Back to menu hint
+        back = self.font_small.render("Press ESC to go back", True, GRAY)
+        self.screen.blit(back, back.get_rect(midbottom=(SCREEN_W // 2, SCREEN_H - 15)))
 
     def _draw_playing(self):
         self._draw_bg()
@@ -661,10 +829,22 @@ class LizardTypeGame:
 
     # ── event handling ─────────────────────────────────────────────────────
     def _handle_menu_events(self, event):
+        if self.btn_reptiles.handle_event(event):
+            self.theme = THEME_REPTILES
+            self.creature_list = REPTILES
+            self.state = STATE_THEME_SELECT
+        if self.btn_sea.handle_event(event):
+            self.theme = THEME_SEA_CREATURES
+            self.creature_list = SEA_CREATURES
+            self.state = STATE_THEME_SELECT
+
+    def _handle_theme_select_events(self, event):
         if self.btn_easy.handle_event(event):
             self._start_game("easy")
         if self.btn_hard.handle_event(event):
             self._start_game("hard")
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            self.state = STATE_MENU
 
     def _handle_playing_events(self, event):
         if event.type == pygame.KEYDOWN:
@@ -732,6 +912,8 @@ class LizardTypeGame:
 
                 if self.state == STATE_MENU:
                     self._handle_menu_events(event)
+                elif self.state == STATE_THEME_SELECT:
+                    self._handle_theme_select_events(event)
                 elif self.state == STATE_PLAYING:
                     self._handle_playing_events(event)
                 elif self.state in (STATE_CORRECT, STATE_WRONG):
@@ -748,6 +930,8 @@ class LizardTypeGame:
             # Draw
             if self.state == STATE_MENU:
                 self._draw_menu()
+            elif self.state == STATE_THEME_SELECT:
+                self._draw_theme_select()
             elif self.state == STATE_PLAYING:
                 self._draw_playing()
             elif self.state in (STATE_CORRECT, STATE_WRONG):
