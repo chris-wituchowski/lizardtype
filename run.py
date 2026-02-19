@@ -6,8 +6,15 @@ LizardType launcher — run this from the repo root.
 import sys
 import os
 
+# When frozen by PyInstaller, bundled data is extracted to sys._MEIPASS.
+# Otherwise, resolve relative to this script.
+if getattr(sys, "frozen", False):
+    _BASE_DIR = sys._MEIPASS
+else:
+    _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Make sure src/ is importable
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+sys.path.insert(0, os.path.join(_BASE_DIR, "src"))
 
 from game import main
 
