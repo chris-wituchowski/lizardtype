@@ -36,8 +36,17 @@ def main():
         "--name", "LizardType",
         # Bundle the src/ package so imports work
         "--add-data", f"{src_dir}{separator}src",
-        # Bundle the cached images
-        "--add-data", f"{image_cache_dir}{separator}image_cache",
+    ]
+
+    # Bundle cached images if the directory exists (it's .gitignored,
+    # so it won't be present in a fresh CI checkout — that's fine,
+    # images are downloaded at runtime on first launch).
+    if os.path.isdir(image_cache_dir):
+        cmd += ["--add-data", f"{image_cache_dir}{separator}image_cache"]
+    else:
+        print("Note: image_cache/ not found — images will be downloaded at runtime.")
+
+    cmd += [
         # Hidden imports that PyInstaller may not detect automatically
         "--hidden-import", "reptile_data",
         "--hidden-import", "sea_creature_data",
