@@ -22,10 +22,27 @@ A fun typing game for kids who love reptiles and sea creatures!
 
 ## Requirements
 
-- Python 3.10 or higher
 - Internet connection (for first-time image downloads; images are cached locally)
 
-## Installation
+## Download & Play
+
+The easiest way to get LizardType is to download a pre-built executable — **no Python installation required**.
+
+1. Go to the [**Latest Release**](https://github.com/chris-wituchowski/lizardtype/releases/latest)
+2. Download the file for your platform:
+   - **Windows** → `LizardType-Windows.exe`
+   - **Linux** → `LizardType-Linux`
+3. Run the executable and start typing!
+
+> **Linux users:** You may need to make the file executable first: `chmod +x LizardType-Linux`
+
+---
+
+## Running from Source (Developer Setup)
+
+If you prefer to run from source or want to contribute:
+
+**Requirements:** Python 3.10 or higher
 
 ```bash
 # Clone the repository
@@ -45,7 +62,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Running the Game
+### Running from Source
 
 ```bash
 python run.py
@@ -56,6 +73,16 @@ Or directly:
 ```bash
 python src/game.py
 ```
+
+### Building an Executable
+
+To build a standalone executable locally:
+
+```bash
+python build.py
+```
+
+The output will be in the `dist/` folder.
 
 ## How to Play
 
